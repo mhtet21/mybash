@@ -1,0 +1,43 @@
+#!/bin/bash
+#############--VARIABLE--########################
+WORKDIR=/var/www/html/release
+#################################################
+echo "Deployment started ..."
+cd $WORKDIR
+CURRENT=$(ls | grep *_current)
+echo $CURRENT
+if [ -d "$CURRENT" ]; then
+	OLDPREFIX=$(echo $CURRENT | sed "s/_current$//")
+	TODAY=$(date +%Y%m%d%H%M)
+	echo $OLDPREFIX
+	echo $TODAY
+	sudo cp -r $CURRENT "${OLDPREFIX}_old"
+	sudo mv $CURRENT "${TODAY}_current"
+fi
+sudo unlink /var/www/html/current
+sudo ln -s ${WORKDIR}/${TODAY}_current /var/www/html/current
+KEEP=3
+while [ `ls -1 | wc -l` -gt $KEEP ]; do
+    OLDEST=`ls -tlI "*_current" | tail -1`
+    echo "remove $OLDEST"
+    sudo rm -rf $OLDEST
+done
+cd ${TODAY}_current
+# Enter maintenance mode
+sudo php artisan down || echo "Warning! Can't Enter Maintenance Mode"
+# Update codebase
+sudo git config --global --add safe.directory ${WORKDIR}/${TODAY}_current
+sudo git checkout .
+sudo git pull origin master
+sudo git show
+# Install dependencies
+sudo composer install 
+# Clear cache
+sudo php artisan cache:clear
+sudo php artisan config:clear
+sudo php artisan view:clear
+# Exit maintenance mode
+sudo php artisan up
+sudo chown -R www-data:www-data /var/www/html/
+sudo systemctl reload php7.3-fpm.service
+echo "Deployment finished!"

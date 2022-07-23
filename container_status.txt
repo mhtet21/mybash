@@ -1,0 +1,18 @@
+#!/bin/bash
+CONTAINER=<container_name>
+COUNT=0
+while [ true ]; do
+	RUNNING=$(docker inspect -f '{{.State.Status}}' $CONTAINER 2>/dev/null)
+        if [ "$RUNNING" == "running" ]; then
+                echo "$CONTAINER is running."
+                exit 0
+        elif [ $COUNT -ge 5 ]; then
+		exit 0
+        else
+		((COUNT++))
+                echo "$CONTAINER is not running. Sleep for $COUNT second"
+                sleep 1
+        fi
+done
+
+exit 0
